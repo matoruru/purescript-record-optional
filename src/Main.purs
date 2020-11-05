@@ -8,6 +8,7 @@ import Data.Maybe (Maybe(..), optional)
 import Data.Symbol (SProxy(..))
 import Effect (Effect)
 import Effect.Console (log, logShow)
+import Main4 as Main4
 import Prim.Row as Row
 import Prim.RowList as RL
 import Record as Record
@@ -16,6 +17,7 @@ import Record.Builder as Builder
 import Type.Equality (class TypeEquals)
 import Type.Prelude (class IsSymbol, Proxy(..), RLProxy(..), RProxy(..))
 import Type.RowList (class ListToRow) as RL
+import Unsafe.Coerce (unsafeCoerce)
 
 data Required a
 
@@ -29,8 +31,8 @@ instance sort ::
   ) => Sort i o
 
 class ExtractRequiredFromDefinition
-  (definition :: RL.RowList) (initial :: RL.RowList) (result :: RL.RowList)
-  | definition initial -> result
+  (spec :: RL.RowList) (initial :: RL.RowList) (result :: RL.RowList)
+  | spec initial -> result
 
 instance _ExtractRequiredFromDefinitionNil ::
   ( Sort initial initial'
@@ -45,8 +47,8 @@ else instance _ExtractRequiredFromDefinitionIgnore ::
   ) => ExtractRequiredFromDefinition (RL.Cons label a tail) initial result
 
 class ExtractOptionalFromDefinition
-  (definition :: RL.RowList) (initial :: RL.RowList) (result :: RL.RowList)
-  | definition initial -> result
+  (spec :: RL.RowList) (initial :: RL.RowList) (result :: RL.RowList)
+  | spec initial -> result
 
 instance _ExtractOptionalFromDefinitionNil ::
   ( Sort initial initial'
@@ -119,7 +121,7 @@ else instance _BuilderOptionalJust ::
         deleted = Record.delete label r
         first   = Builder.insert label value
         rest    = builder (RLProxy :: _ required) (RLProxy :: _ tail) (RLProxy :: _ tail') deleted
- 
+
 else instance _BuilderOptionalNothing ::
   ( IsSymbol label
   , Builder required tail input input' from from'
@@ -134,11 +136,11 @@ else instance _BuilderOptionalNothing ::
         rest    = builder (RLProxy :: _ required) (RLProxy :: _ tail) (RLProxy :: _ input) r
 
 extract
-  :: forall definition definition' required required' optional optional'
-   . TypeEquals (RProxy MyRecord) (RProxy definition)
-  => RL.RowToList definition definition'
-  => ExtractRequiredFromDefinition definition' RL.Nil required'
-  => ExtractOptionalFromDefinition definition' RL.Nil optional'
+  :: forall spec spec' required required' optional optional'
+   . TypeEquals (RProxy MyRecord) (RProxy spec)
+  => RL.RowToList spec spec'
+  => ExtractRequiredFromDefinition spec' RL.Nil required'
+  => ExtractOptionalFromDefinition spec' RL.Nil optional'
   => RL.ListToRow required' required
   => RL.ListToRow optional' optional
   => TypeEquals { | required } { c :: Int, d :: Number }
@@ -149,6 +151,39 @@ extract = {}
 extract' :: {}
 extract' = extract
 
+confirm
+  :: forall spec spec' input input' required' optional'
+   . TypeEquals (RProxy MyRecord) (RProxy spec)
+  => TypeEquals (RProxy ( a :: Int, c :: Int, d :: Number, e :: String )) (RProxy input)
+  => RL.RowToList spec spec'
+  => RL.RowToList input input'
+  => ExtractRequiredFromDefinition spec' RL.Nil required'
+  => ExtractOptionalFromDefinition spec' RL.Nil optional'
+  => CompareToDefinition required' optional' input'
+  => {}
+confirm = {}
+
+confirm' :: {}
+confirm' = confirm
+
+class Build
+  (spec :: # Type) (input :: # Type) (output :: # Type)
+  | spec -> output, output -> spec
+  where
+    build :: Record input -> Record output
+
+instance i_Build ::
+  ( RL.RowToList spec spec'
+  , RL.RowToList input input'
+  , ExtractRequiredFromDefinition spec' RL.Nil required'
+  , ExtractOptionalFromDefinition spec' RL.Nil optional'
+  , CompareToDefinition required' optional' input'
+  , Builder required' optional' input' input () output
+  ) => Build spec input output where
+    build r = Builder.build builder' {}
+      where
+        builder' = builder (RLProxy :: _ required') (RLProxy :: _ optional') (RLProxy :: _ input') r
+
 type MyRecord =
   ( a :: Int
   , b :: String
@@ -157,38 +192,62 @@ type MyRecord =
   , e :: String
   )
 
-confirm
-  :: forall definition definition' input input' required' optional'
-   . TypeEquals (RProxy MyRecord) (RProxy definition)
-  => TypeEquals (RProxy ( a :: Int, c :: Int, d :: Number, e :: String )) (RProxy input)
-  => RL.RowToList definition definition'
-  => RL.RowToList input input'
-  => ExtractRequiredFromDefinition definition' RL.Nil required'
-  => ExtractOptionalFromDefinition definition' RL.Nil optional'
-  => CompareToDefinition required' optional' input'
-  => {}
-confirm = {}
+build1
+  :: forall i o
+   . Build MyRecord i o
+  => Record i
+  -> Record o
+build1 = build
 
-confirm' :: {}
-confirm' = confirm
-
-build
-  :: forall definition definition' input input' required' optional' result
-   . TypeEquals (RProxy MyRecord) (RProxy definition)
-  => RL.RowToList definition definition'
-  => RL.RowToList input input'
-  => ExtractRequiredFromDefinition definition' RL.Nil required'
-  => ExtractOptionalFromDefinition definition' RL.Nil optional'
-  => CompareToDefinition required' optional' input'
-  => Builder required' optional' input' input () result
-  => Record input
-  -> Record result
-build r = Builder.build builder' {}
+class Cuild
+  (spec :: # Type) (input :: # Type) (output :: # Type) (a :: RL.RowList)
+  | spec -> output, output -> spec, spec -> a
   where
-    builder' = builder (RLProxy :: _ required') (RLProxy :: _ optional') (RLProxy :: _ input') r
+    cuild :: Record input -> Record spec -> RLProxy a
 
-build1 = build { a: 3, b: "", c: 1, d: 1.1, e: "" }
+instance i_Cuild ::
+  ( RL.RowToList spec spec'
+  , RL.RowToList input input'
+  , ExtractRequiredFromDefinition spec' RL.Nil required'
+  , ExtractOptionalFromDefinition spec' RL.Nil optional'
+  , CompareToDefinition required' optional' input'
+  , Builder required' optional' input' input () output
+  ) => Cuild spec input output required' where
+    cuild _ _ = RLProxy :: _ required'
+-- 
+-- a
+--   :: forall input output a
+--    . Cuild MyRecord input output a
+--   => Record input
+--   -> Record output
+--   -> RLProxy a
+-- a = cuild
+-- 
+-- a' :: _
+-- a' = a
 
-main :: Effect Unit
-main = do
-  logShow $ build1
+a :: _
+a r = (r { a: "Hi", b: "aa", c: 3 }).a
+
+a' :: _
+a' = a \x -> { a: 3 }
+
+{-
+-}
+
+-- -- It still cannot access to field...
+-- -- TODO: How can this be inferred?
+-- build2
+--   :: forall i o
+--    . Build MyRecord i o
+--   => Record i
+--   -> Record o
+-- build2 r = result.c
+--   where
+--     result = build r
+
+-- main :: Effect Unit
+-- main = do
+--   logShow $ build1
+
+main = Main4.main
