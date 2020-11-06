@@ -28,6 +28,13 @@ type T =
   , d :: String
   }
 
+type TMR =
+  ( a :: Maybe Int
+  , b :: Maybe String
+  , c :: Maybe Number
+  , d :: Maybe String
+  )
+
 mapRecord :: forall input row xs row' merged
    . RL.RowToList row xs
   => MapRecord xs row () row'
@@ -60,11 +67,14 @@ instance mapRecordCons ::
 instance mapRecordNil :: MapRecord RL.Nil row () () where
   mapRecordBuilder _ = identity
 
-mapRecord' :: _
-mapRecord' r = result
-  where
-    result = mapRecord (Proxy :: _ T) { a: Just 3, c: Just 3.3 }
+type Constraints result input output =
+  forall trash. Row.Union input result trash => Row.Nub trash result => Record input -> output
+
+mapRecord' :: forall input. Constraints TMR input (Record TMR)
+mapRecord' r = mapRecord (Proxy :: _ T) r
 
 main :: Effect Unit
 main = do
-  logShow $ mapRecord' {}
+  logShow $ mapRecord' { a: Just 3 }
+
+
