@@ -35,28 +35,38 @@ type TMR =
   , d :: Maybe String
   )
 
-mapRecord :: forall input row xs row' merged
+type TMRW =
+  ( a :: Maybe Int
+  , b :: Maybe String
+  , c :: Maybe Number
+  , d :: Maybe String
+  , e :: Int
+  , f :: String
+  )
+
+mapRecord :: forall input row whole xs row' merged
    . RL.RowToList row xs
-  => MapRecord xs row () row'
+  => MapRecord xs () row'
   => Row.Union input row' merged
-  => Row.Nub merged row'
+  => Row.Nub merged whole
   => Proxy (Record row)
+  -> RProxy whole
   -> Record input
-  -> Record row'
-mapRecord _ r = ((Record.merge r $ (Builder.build builder {} :: Record row')) :: Record row')
+  -> Record whole
+mapRecord _ _ r = ((Record.merge r $ (Builder.build builder {} :: Record row')) :: Record whole)
   where
     builder = mapRecordBuilder (RLProxy :: _ xs)
 
-class MapRecord (xs :: RL.RowList) (row :: # Type) (from :: # Type) (to :: # Type)
-  | xs -> row from to where
+class MapRecord (xs :: RL.RowList) (from :: # Type) (to :: # Type)
+  | xs -> from to where
   mapRecordBuilder :: RLProxy xs -> Builder { | from } { | to }
 
 instance mapRecordCons ::
   ( IsSymbol name
-  , MapRecord tail row from from'
+  , MapRecord tail from from'
   , Row.Lacks name from'
   , Row.Cons name (Maybe a) from' to
-  ) => MapRecord (RL.Cons name a tail) row from to where
+  ) => MapRecord (RL.Cons name a tail) from to where
   mapRecordBuilder _ =
     first <<< rest
     where
@@ -64,17 +74,19 @@ instance mapRecordCons ::
       rest = mapRecordBuilder (RLProxy :: _ tail)
       first = Builder.insert nameP (Nothing :: _ a)
 
-instance mapRecordNil :: MapRecord RL.Nil row () () where
+instance mapRecordNil :: MapRecord RL.Nil () () where
   mapRecordBuilder _ = identity
 
 type Constraints result input output =
-  forall trash. Row.Union input result trash => Row.Nub trash result => Record input -> output
+  forall trash. Row.Union input result trash => Row.Nub trash output => Record input -> Record output
 
-mapRecord' :: forall input. Constraints TMR input (Record TMR)
-mapRecord' r = mapRecord (Proxy :: _ T) r
+mapRecord' :: forall input. Constraints TMR input _
+mapRecord' r = result
+  where
+    result = mapRecord (Proxy :: _ T) (RProxy :: _ TMRW) r
 
 main :: Effect Unit
 main = do
-  logShow $ mapRecord' { a: Just 3 }
+  logShow $ mapRecord' { a: Just 3, e: 2, f: "" }
 
 
