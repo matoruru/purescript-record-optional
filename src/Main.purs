@@ -4,6 +4,8 @@ import Prelude
 
 import Data.Maybe (Maybe(..))
 import Data.Symbol (SProxy(..))
+import Effect (Effect)
+import Effect.Class.Console (logShow)
 import Prim.Row as Row
 import Prim.RowList as RL
 import Record as Record
@@ -57,8 +59,15 @@ mapRecord :: forall mytype mytype' opts opts' reqs optsreqs input xs merged
   => Proxy (Record mytype)
   -> Record input
   -> Record optsreqs
-mapRecord _ r = ((Record.merge r $ (Builder.build builder {} :: Record opts')) :: Record optsreqs)
+mapRecord _ r = merged
   where
+    merged :: Record optsreqs
+    merged = Record.merge r nothings
+
+    nothings :: Record opts'
+    nothings = Builder.build builder {}
+
+    builder :: Builder {} { | opts' }
     builder = mapRecordBuilder (RLProxy :: _ xs)
 
 class MapRecord (xs :: RL.RowList) (from :: # Type) (to :: # Type)
@@ -96,3 +105,7 @@ type Constraints result input output =
 mapRecord' r = result
   where
     result = mapRecord (Proxy :: _ { | MyType }) r
+
+main :: Effect Unit
+main = do
+  logShow $ mapRecord' { b: Just "Hi", e: 1, f: "Hii" }
