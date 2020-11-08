@@ -6,7 +6,9 @@ You can edit this file as you like.
 , dependencies =
   [ "console"
   , "effect"
+  , "foreign-object"
   , "maybe"
+  , "ordered-collections"
   , "psci-support"
   , "record"
   , "typelevel-prelude"
