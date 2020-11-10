@@ -1,12 +1,16 @@
 module Example where
 
-import Data.Maybe (Maybe)
-import Main (class Build, Required, Spec(..), build)
+import Prelude
+
+import Data.Maybe (Maybe(..))
+import Main (class Build, build)
+import Type (type (-*), Required, Spec(..))
+import Type.Prelude (Proxy(..))
 
 type Person =
-  { name       :: Required String
-  , age        :: Required Int
-  , region     :: Required String
+  { name       :: String -* Required
+  , age        :: Int    -* Required
+  , region     :: String -* Required
   , region2    :: String
   , middlename :: String
   }
