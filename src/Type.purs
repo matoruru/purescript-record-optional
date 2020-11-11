@@ -2,7 +2,7 @@ module Type where
 
 data Required a
 
-data Spec spec = Spec
+data Spec (spec :: # Type) = Spec
 
 type ApplyFlipped a b = b a
 
