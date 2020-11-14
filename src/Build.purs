@@ -7,7 +7,7 @@ import Prim.Row as Row
 import Prim.RowList as RL
 import Record.Builder as Builder
 import Type as T
-import Type.Prelude (class IsSymbol, class TypeEquals, RLProxy(..), RProxy)
+import Type.Prelude (class IsSymbol, class TypeEquals, RLProxy(..))
 
 class Build
   (spec :: # Type) (input :: # Type) (result :: Type)
