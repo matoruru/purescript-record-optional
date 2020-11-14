@@ -18,7 +18,7 @@ class Build
 instance iBuild ::
   ( RL.RowToList spec spec'
   , RL.RowToList input input'
-  , FromSpec spec' result
+  , FromSpec spec' () result
   , Builder spec' input' input result
   ) => Build spec input (Record result) where
   build _ = Builder.build builder'
@@ -36,17 +36,13 @@ instance iBuilderNil :: Builder RL.Nil RL.Nil from from where
     builder _ _ = identity
 
 instance iBuilderRequired ::
-  ( Row.Cons label a () expected
-  , Row.Cons label' a' () actual
-  , TypeEquals (RProxy expected) (RProxy actual)
+  ( TypeEquals (RLProxy input) (RLProxy (RL.Cons label a tail'))
   , Builder tail tail' from to
-  ) => Builder (RL.Cons label (T.Required a) tail) (RL.Cons label' a' tail') from to where
+  ) => Builder (RL.Cons label (T.Required a) tail) input from to where
     builder _ _ = builder (RLProxy :: _ tail) (RLProxy :: _ tail')
 
 else instance iBuilderOptionalFound ::
-  ( TypeEquals a' (Maybe a'')
-  , TypeEquals a a''
-  , Builder tail tail' from to
+  ( Builder tail tail' from to
   ) => Builder (RL.Cons label a tail) (RL.Cons label a' tail') from to where
     builder _ _ = builder (RLProxy :: _ tail) (RLProxy :: _ tail')
 
@@ -62,21 +58,17 @@ else instance iBuilderOptionalMissing ::
         value = Nothing :: Maybe a
         next  = builder (RLProxy :: _ tail) (RLProxy :: _ input)
 
-class FromSpec (spec :: RL.RowList) (result :: # Type) | spec -> result
+class FromSpec (spec :: RL.RowList) (row :: # Type) (result :: # Type) | spec row -> result
 
-instance iFromSpec :: FromSpecI spec () result => FromSpec spec result
+instance iFromSpecNil :: FromSpec RL.Nil row row
 
-class FromSpecI (spec :: RL.RowList) (row :: # Type) (result :: # Type) | spec row -> result
-
-instance iFromSpecINil :: FromSpecI RL.Nil row row
-
-instance iFromSpecIRequired ::
+instance iFromSpecRequired ::
   ( Row.Cons label a row result
-  , FromSpecI tail result result'
-  ) => FromSpecI (RL.Cons label (T.Required a) tail) row result'
+  , FromSpec tail result result'
+  ) => FromSpec (RL.Cons label (T.Required a) tail) row result'
 
 else instance iFromSpecIOptional ::
   ( Row.Cons label (Maybe a) row result
-  , FromSpecI tail result result'
-  ) => FromSpecI (RL.Cons label a tail) row result'
+  , FromSpec tail result result'
+  ) => FromSpec (RL.Cons label a tail) row result'
 
